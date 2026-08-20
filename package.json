@@ -1,0 +1,23 @@
+{
+  "name": "aiseason-whatsapp-bot",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node src/whatsapp.js",
+    "dev": "node --watch src/whatsapp.js"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "latest",
+    "@langchain/groq": "latest",
+    "@langchain/community": "latest",
+    "@langchain/core": "latest",
+    "langchain": "latest",
+    "@xenova/transformers": "latest",
+    "dotenv": "latest",
+    "pino": "latest",
+    "qrcode-terminal": "latest"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
