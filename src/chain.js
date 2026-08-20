@@ -1,24 +1,30 @@
-import { ChatGroq } from '@langchain/groq';
-import { ChatPromptTemplate, MessagesPlaceholder } from '@langchain/core/prompts';
-import { StringOutputParser } from '@langchain/core/output_parsers';
-import { HumanMessage, AIMessage } from '@langchain/core/messages';
-import { queryRAG, isKnowledgeBaseQuery } from './rag.js';
+import { ChatGroq } from "@langchain/groq";
+import {
+  ChatPromptTemplate,
+  MessagesPlaceholder,
+} from "@langchain/core/prompts";
+import { StringOutputParser } from "@langchain/core/output_parsers";
+import { HumanMessage, AIMessage } from "@langchain/core/messages";
+import { queryRAG, isKnowledgeBaseQuery } from "./rag.js";
 import {
   getPersonalInfoSummary,
   isMemoryQuery,
   getConversationHistory,
   updateMemory,
-} from './memory.js';
-import dotenv from 'dotenv';
+} from "./memory.js";
+import dotenv from "dotenv";
 
 dotenv.config();
 
 /**
  * Single LLM instance created at module load
  */
+const modelId = process.env.LLM_MODEL || 'openai/gpt-oss-120b';
+
 export const llm = new ChatGroq({
   apiKey: process.env.GROQ_API_KEY || 'dummy-key',
-  modelName: process.env.LLM_MODEL || 'llama-3.3-70b-versatile',
+  model: modelId,
+  modelName: modelId,
   temperature: 0.7,
   maxTokens: 800,
 });
@@ -57,9 +63,9 @@ Personal info you know about this user:
  * LCEL General Chat Chain using MessagesPlaceholder("history")
  */
 export const conversationChain = ChatPromptTemplate.fromMessages([
-  ['system', SYSTEM_PROMPT],
-  new MessagesPlaceholder('history'),
-  ['human', '{message}'],
+  ["system", SYSTEM_PROMPT],
+  new MessagesPlaceholder("history"),
+  ["human", "{message}"],
 ])
   .pipe(llm)
   .pipe(new StringOutputParser());
@@ -70,13 +76,13 @@ export const conversationChain = ChatPromptTemplate.fromMessages([
 export async function processMessage(phone, userMessage) {
   try {
     // Step 1: Always update memory with incoming user message
-    updateMemory(phone, userMessage, 'user');
+    updateMemory(phone, userMessage, "user");
 
     // PATH A — Memory Query (Zero LLM Tokens)
     if (isMemoryQuery(userMessage)) {
       console.log(`[${phone}] Route: MEMORY | ~0 tokens`);
       const response = getPersonalInfoSummary(phone);
-      updateMemory(phone, response, 'assistant');
+      updateMemory(phone, response, "assistant");
       return response;
     }
 
@@ -85,21 +91,25 @@ export async function processMessage(phone, userMessage) {
       console.log(`[${phone}] Route: RAG | ~300 tokens`);
       const ragResponse = await queryRAG(userMessage);
       if (ragResponse) {
-        updateMemory(phone, ragResponse, 'assistant');
+        updateMemory(phone, ragResponse, "assistant");
         return ragResponse;
       }
-      console.log(`[${phone}] RAG returned null. Falling through to PATH C General LLM...`);
+      console.log(
+        `[${phone}] RAG returned null. Falling through to PATH C General LLM...`,
+      );
     }
 
     // PATH C — General Conversational LLM (~800 Tokens Capped)
     const rawHistory = getConversationHistory(phone);
     const historyMessages = rawHistory.map((m) =>
-      m.role === 'human' ? new HumanMessage(m.content) : new AIMessage(m.content)
+      m.role === "human"
+        ? new HumanMessage(m.content)
+        : new AIMessage(m.content),
     );
 
     const personalContext = getPersonalInfoSummary(phone);
     const estimatedTokens = Math.round(
-      JSON.stringify([SYSTEM_PROMPT, ...rawHistory, userMessage]).length / 4
+      JSON.stringify([SYSTEM_PROMPT, ...rawHistory, userMessage]).length / 4,
     );
 
     console.log(`[${phone}] Route: LLM | ~${estimatedTokens} tokens`);
@@ -111,17 +121,17 @@ export async function processMessage(phone, userMessage) {
     });
 
     // Step 3: Save response to memory
-    updateMemory(phone, response, 'assistant');
+    updateMemory(phone, response, "assistant");
 
     // Step 4: Return response
     return response;
   } catch (error) {
-    console.error('💥 Chain error:', error);
+    console.error("💥 Chain error:", error);
     const errorStr = String(error?.message || error);
-    if (errorStr.includes('429')) {
+    if (errorStr.includes("429")) {
       return "I'm a bit busy right now, please try again in a moment! 🙏";
     }
-    return 'Something went wrong. Please try again!';
+    return "Something went wrong. Please try again!";
   }
 }
 

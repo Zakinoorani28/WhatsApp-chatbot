@@ -1,4 +1,4 @@
-import { HumanMessage, AIMessage } from '@langchain/core/messages';
+import { HumanMessage, AIMessage } from "@langchain/core/messages";
 
 /**
  * In-memory JavaScript Map storing session state per cleaned phone number
@@ -10,7 +10,7 @@ export const memoryStore = new Map();
  */
 export function getOrCreateSession(phone) {
   if (!phone) return null;
-  const cleanPhone = String(phone).replace('@s.whatsapp.net', '').trim();
+  const cleanPhone = String(phone).replace("@s.whatsapp.net", "").trim();
 
   if (!memoryStore.has(cleanPhone)) {
     memoryStore.set(cleanPhone, {
@@ -39,7 +39,7 @@ function cleanExtractedValue(text) {
   if (!text) return null;
   return text
     .trim()
-    .replace(/[.,!?]+$/g, '')
+    .replace(/[.,!?]+$/g, "")
     .trim();
 }
 
@@ -48,7 +48,7 @@ function cleanExtractedValue(text) {
  * Never returns null for detected fields.
  */
 export function extractPersonalInfo(message) {
-  if (!message || typeof message !== 'string') return {};
+  if (!message || typeof message !== "string") return {};
 
   const extracted = {};
   const msg = message.trim();
@@ -69,7 +69,8 @@ export function extractPersonalInfo(message) {
     if (match && match[1]) {
       const val = cleanExtractedValue(match[1]);
       const lower = val.toLowerCase();
-      if (val && !['a', 'an', 'the', 'student', 'developer', 'boy', 'girl'].includes(lower)) {
+      const stopWords = ['a', 'an', 'the', 'student', 'developer', 'boy', 'girl', 'batao', 'kya', 'hai', 'kon', 'kaun', 'hu', 'hoon', 'bata', 'bataiye'];
+      if (val && !stopWords.includes(lower)) {
         extracted.name = val;
         break;
       }
@@ -195,15 +196,22 @@ export function extractPersonalInfo(message) {
 /**
  * Updates user memory with new messages and merges personal info without overwriting
  */
-export function updateMemory(phone, message, role = 'user') {
+export function updateMemory(phone, message, role = "user") {
   const session = getOrCreateSession(phone);
   if (!session) return;
 
-  if (role === 'user') {
+  if (role === "user") {
     const extracted = extractPersonalInfo(message);
 
     // Merge single string fields (do not overwrite existing with null)
-    const singleFields = ['name', 'age', 'city', 'profession', 'favoriteFood', 'favoriteColor'];
+    const singleFields = [
+      "name",
+      "age",
+      "city",
+      "profession",
+      "favoriteFood",
+      "favoriteColor",
+    ];
     for (const field of singleFields) {
       if (extracted[field]) {
         session.personalInfo[field] = extracted[field];
@@ -211,7 +219,7 @@ export function updateMemory(phone, message, role = 'user') {
     }
 
     // Merge array fields (push new items & deduplicate)
-    const arrayFields = ['hobbies', 'preferences', 'facts'];
+    const arrayFields = ["hobbies", "preferences", "facts"];
     for (const field of arrayFields) {
       if (Array.isArray(extracted[field])) {
         for (const item of extracted[field]) {
@@ -254,24 +262,27 @@ export function getPersonalInfoSummary(phone) {
   if (info.age) lines.push(`• Age: ${info.age}`);
   if (info.city) lines.push(`• City: ${info.city}`);
   if (info.profession) lines.push(`• Profession: ${info.profession}`);
-  if (info.hobbies && info.hobbies.length > 0) lines.push(`• Hobbies: ${info.hobbies.join(', ')}`);
+  if (info.hobbies && info.hobbies.length > 0)
+    lines.push(`• Hobbies: ${info.hobbies.join(", ")}`);
   if (info.favoriteFood) lines.push(`• Favorite Food: ${info.favoriteFood}`);
   if (info.favoriteColor) lines.push(`• Favorite Color: ${info.favoriteColor}`);
-  if (info.preferences && info.preferences.length > 0) lines.push(`• Preferences: ${info.preferences.join(', ')}`);
-  if (info.facts && info.facts.length > 0) lines.push(`• Other facts: ${info.facts.join(', ')}`);
+  if (info.preferences && info.preferences.length > 0)
+    lines.push(`• Preferences: ${info.preferences.join(", ")}`);
+  if (info.facts && info.facts.length > 0)
+    lines.push(`• Other facts: ${info.facts.join(", ")}`);
 
   if (lines.length === 0) {
     return "I don't know anything about you yet. Tell me your name, age, hobbies, or anything about yourself!";
   }
 
-  return `Here's what I know about you:\n${lines.join('\n')}`;
+  return `Here's what I know about you:\n${lines.join("\n")}`;
 }
 
 /**
  * Detects if user message is a personal memory query (15+ trigger phrases in English & Urdu)
  */
 export function isMemoryQuery(message) {
-  if (!message || typeof message !== 'string') return false;
+  if (!message || typeof message !== "string") return false;
 
   const keywords = [
     'what do you know about me',
@@ -288,8 +299,14 @@ export function isMemoryQuery(message) {
     'do you know me',
     'my details',
     'mera naam kya hai',
-    'meri info'
+    'meri info',
+    'mera naam batao',
+    'name batao',
+    'mera naam kya hai',
+    'kya passand',
+    'kya pasand',
   ];
+
 
   const lowerMsg = message.toLowerCase();
   return keywords.some((keyword) => lowerMsg.includes(keyword));
@@ -304,7 +321,7 @@ export function getConversationHistory(phone) {
 
   const history = session.conversationHistory.slice(-8);
   return history.map((msg) => ({
-    role: msg.role === 'user' ? 'human' : 'assistant',
+    role: msg.role === "user" ? "human" : "assistant",
     content: msg.content,
   }));
 }
@@ -313,6 +330,6 @@ export function getConversationHistory(phone) {
  * Resets session memory for a phone number
  */
 export function clearMemory(phone) {
-  const cleanPhone = String(phone).replace('@s.whatsapp.net', '').trim();
+  const cleanPhone = String(phone).replace("@s.whatsapp.net", "").trim();
   memoryStore.delete(cleanPhone);
 }

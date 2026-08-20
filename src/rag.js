@@ -1,15 +1,18 @@
-import { ChatGroq } from '@langchain/groq';
-import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters';
-import { MemoryVectorStore } from '@langchain/classic/vectorstores/memory';
-import { Embeddings } from '@langchain/core/embeddings';
-import { ChatPromptTemplate } from '@langchain/core/prompts';
-import { StringOutputParser } from '@langchain/core/output_parsers';
-import { RunnablePassthrough, RunnableSequence } from '@langchain/core/runnables';
-import { pipeline } from '@xenova/transformers';
-import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import dotenv from 'dotenv';
+import { ChatGroq } from "@langchain/groq";
+import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
+import { MemoryVectorStore } from "@langchain/classic/vectorstores/memory";
+import { Embeddings } from "@langchain/core/embeddings";
+import { ChatPromptTemplate } from "@langchain/core/prompts";
+import { StringOutputParser } from "@langchain/core/output_parsers";
+import {
+  RunnablePassthrough,
+  RunnableSequence,
+} from "@langchain/core/runnables";
+import { pipeline } from "@xenova/transformers";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import dotenv from "dotenv";
 
 dotenv.config();
 
@@ -22,13 +25,13 @@ const __dirname = path.dirname(__filename);
 export class LocalHuggingFaceEmbeddings extends Embeddings {
   constructor(fields = {}) {
     super(fields);
-    this.modelName = fields.model || 'Xenova/all-MiniLM-L6-v2';
+    this.modelName = fields.model || "Xenova/all-MiniLM-L6-v2";
     this.pipe = null;
   }
 
   async getPipeline() {
     if (!this.pipe) {
-      this.pipe = await pipeline('feature-extraction', this.modelName);
+      this.pipe = await pipeline("feature-extraction", this.modelName);
     }
     return this.pipe;
   }
@@ -37,7 +40,7 @@ export class LocalHuggingFaceEmbeddings extends Embeddings {
     const pipe = await this.getPipeline();
     const embeddings = [];
     for (const text of texts) {
-      const output = await pipe(text, { pooling: 'mean', normalize: true });
+      const output = await pipe(text, { pooling: "mean", normalize: true });
       embeddings.push(Array.from(output.data));
     }
     return embeddings;
@@ -45,7 +48,7 @@ export class LocalHuggingFaceEmbeddings extends Embeddings {
 
   async embedQuery(text) {
     const pipe = await this.getPipeline();
-    const output = await pipe(text, { pooling: 'mean', normalize: true });
+    const output = await pipe(text, { pooling: "mean", normalize: true });
     return Array.from(output.data);
   }
 }
@@ -61,14 +64,14 @@ export async function initRAG() {
     return { retriever, ragChain };
   }
 
-  console.log('📖 Loading knowledge base from src/knowledge/aiseason.txt...');
-  const knowledgePath = path.join(__dirname, 'knowledge', 'aiseason.txt');
+  console.log("📖 Loading knowledge base from src/knowledge/aiseason.txt...");
+  const knowledgePath = path.join(__dirname, "knowledge", "aiseason.txt");
 
   if (!fs.existsSync(knowledgePath)) {
     throw new Error(`Knowledge file not found at ${knowledgePath}`);
   }
 
-  const rawText = fs.readFileSync(knowledgePath, 'utf-8');
+  const rawText = fs.readFileSync(knowledgePath, "utf-8");
 
   // Split text using RecursiveCharacterTextSplitter (chunkSize: 500, chunkOverlap: 50)
   const splitter = new RecursiveCharacterTextSplitter({
@@ -80,7 +83,7 @@ export async function initRAG() {
   console.log(`🧩 Loaded ${docs.length} chunks into MemoryVectorStore`);
 
   // Local HuggingFace embeddings
-  const modelName = process.env.EMBEDDING_MODEL || 'Xenova/all-MiniLM-L6-v2';
+  const modelName = process.env.EMBEDDING_MODEL || "Xenova/all-MiniLM-L6-v2";
   const embeddings = new LocalHuggingFaceEmbeddings({ model: modelName });
 
   const vectorStore = await MemoryVectorStore.fromDocuments(docs, embeddings);
@@ -89,7 +92,9 @@ export async function initRAG() {
   // RAG Chain using strict LCEL pipe syntax from course slides
   ragChain = RunnableSequence.from([
     {
-      context: retriever.pipe((docs) => docs.map((d) => d.pageContent).join('\n\n')),
+      context: retriever.pipe((docs) =>
+        docs.map((d) => d.pageContent).join("\n\n"),
+      ),
       question: new RunnablePassthrough(),
     },
     ChatPromptTemplate.fromTemplate(`
@@ -105,15 +110,17 @@ export async function initRAG() {
       Concise answer (2-4 sentences for WhatsApp):
     `),
     new ChatGroq({
-      apiKey: process.env.GROQ_API_KEY || 'dummy-key',
-      modelName: process.env.LLM_MODEL || 'llama-3.3-70b-versatile',
+      apiKey: process.env.GROQ_API_KEY || "dummy-key",
+      model: process.env.LLM_MODEL || "openai/gpt-oss-120b",
+      modelName: process.env.LLM_MODEL || "openai/gpt-oss-120b",
       temperature: 0.3,
       maxTokens: 400,
     }),
+
     new StringOutputParser(),
   ]);
 
-  console.log('RAG ready ✓');
+  console.log("RAG ready ✓");
   return { retriever, ragChain };
 }
 
@@ -132,7 +139,10 @@ export async function queryRAG(question) {
     const answer = await ragChain.invoke(question);
     return answer;
   } catch (error) {
-    console.error(`💥 RAG query failed for "${question}":`, error?.message || error);
+    console.error(
+      `💥 RAG query failed for "${question}":`,
+      error?.message || error,
+    );
     return null;
   }
 }
@@ -141,19 +151,58 @@ export async function queryRAG(question) {
  * Synchronous keyword routing check covering 40+ course topics
  */
 export function isKnowledgeBaseQuery(message) {
-  if (!message || typeof message !== 'string') return false;
+  if (!message || typeof message !== "string") return false;
 
   const keywords = [
-    'ai season', 'bootcamp', 'langchain', 'lcel', 'runnable',
-    'rag', 'retriever', 'embedding', 'embeddings', 'vector store',
-    'vector', 'chunk', 'chunking', 'similarity search', 'tool',
-    'tools', 'tool calling', '@tool', 'bind_tools', 'react',
-    'agent', 'agents', 'memory', 'groq', 'baileys',
-    'langgraph', 'node', 'nodes', 'edge', 'edges',
-    'checkpointer', 'lpu', 'prompt', 'chain', 'model',
-    'token', 'tokens', 'context', 'similarity', 'whatsapp',
-    'qr scan', 'session', 'multimodal', 'stateful', 'schema',
-    'parser', 'sequence', 'parallel', 'branch'
+    "ai season",
+    "bootcamp",
+    "langchain",
+    "lcel",
+    "runnable",
+    "rag",
+    "retriever",
+    "embedding",
+    "embeddings",
+    "vector store",
+    "vector",
+    "chunk",
+    "chunking",
+    "similarity search",
+    "tool",
+    "tools",
+    "tool calling",
+    "@tool",
+    "bind_tools",
+    "react",
+    "agent",
+    "agents",
+    "memory",
+    "groq",
+    "baileys",
+    "langgraph",
+    "node",
+    "nodes",
+    "edge",
+    "edges",
+    "checkpointer",
+    "lpu",
+    "prompt",
+    "chain",
+    "model",
+    "token",
+    "tokens",
+    "context",
+    "similarity",
+    "whatsapp",
+    "qr scan",
+    "session",
+    "multimodal",
+    "stateful",
+    "schema",
+    "parser",
+    "sequence",
+    "parallel",
+    "branch",
   ];
 
   const lowerMsg = message.toLowerCase();

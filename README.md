@@ -14,12 +14,10 @@
 
 ### LangChain Architecture
 
-```
-src/rag.js      ← RAG pipeline (retriever | prompt | llm | parser)
-src/memory.js   ← Personal info detection + storage
-src/chain.js    ← Main brain: routes → memory/RAG/LLM
+src/rag.js ← RAG pipeline (retriever | prompt | llm | parser)
+src/memory.js ← Personal info detection + storage
+src/chain.js ← Main brain: routes → memory/RAG/LLM
 src/whatsapp.js ← Baileys connector (not submitted)
-```
 
 ---
 
